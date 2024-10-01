@@ -1,0 +1,66 @@
+- name: del user directory entry
+  zvm_user:
+    name: '{{ guestName }}'
+    exists: false
+- name: make dir files
+  template:
+    src: dirstub.j2
+    dest: /tmp/{{ guestName }}.direct
+- name: add to directory
+  zvm_user:
+    name: '{{ guestName }}'
+    dirfile: /tmp/{{ guestName }}.direct
+    exists: true
+# I think this replaces a #CP LOGOFF
+- name: shuterdown
+  zvm_startstop_user:
+    name: '{{ guestName }}'
+    loggedon: false
+    viaSMAPI: false
+    stoptime: 1
+  ignore_errors: true
+- name: delete the 201
+  zvm_minidisk:
+    name: '{{ guestName }}'
+    diskaddr: 201
+    diskwipe: 2
+    exists: False  
+# !! Important !! #
+# Check out vars/main.yml or the repository readme for more info on getting 
+# from the user input of disk size in GB to the number of cylinders used for the 201.
+# This conversion will not be perfect and is highly environment dependent!
+# !! End Important !! #
+# Get the right storage unit based on z/VM hypervisor
+# need to get storage from SQ62 for cic1 machines
+- name: create 201 with DASD from the CS1SQ62
+  zvm_minidisk:
+    name: '{{ guestName }}'
+    diskaddr: 201
+    disktype: 3390
+    diskalloc: AUTOG
+    diskloc: CS1SQ62
+    diskunits: 1
+    disksize: "{{ numCylinders|int }}" 
+    # disksize: 180288
+    diskmode: MR
+    diskformat: True
+    exists: True
+  when: '"cic1" in ansible_host'
+# need to get storage from the EAVPOOL for cic2 machines
+- name: create 201 with DASD from the EAVPool
+  zvm_minidisk:
+    name: '{{ guestName }}'
+    diskaddr: 201
+    disktype: 3390
+    diskalloc: AUTOG
+    diskloc: EAVPOOL
+    diskunits: 1
+    disksize: "{{ numCylinders|int }}" 
+    diskmode: MR
+    diskformat: True
+    exists: True
+  when: '"cic2" in ansible_host'
+- name: template a network mangle script
+  template: 
+    src: rhel8nw.template.j2
+    dest: /tmp/{{ guestName }}.sh

@@ -1,0 +1,33 @@
+nodeType: "{{ inventory_hostname | regex_replace('[0-9]', '') }}"
+mediaDir: "{{ clusterName }}/{{ ocpVersion }}"
+kernel_img: rhcos-live-kernel-{{ architecture }}
+initrd_img: rhcos-live-initramfs-{{ architecture }}.img
+rootfs_img: rhcos-live-rootfs-{{ architecture }}.img
+
+# This conversion isn't perfect. We want to go from a consistent disk size in GB in 
+# the inventory to the number of cylinders. In the HCIT environment we try to make the 
+# disks in increments of 10016 in case we need to move the disk arounds. Below we take
+# the user requested disk size in GB (I.E. 20GB) convert to bytes, then multiply by 737280. 
+# This gives the requested number of cylinders. We then want to round that up to the next
+# multiple of our desired increment size. We can then multiply the rounded value by the
+# increment size to get to our total number of cylinders required. This will probably be
+# somewhat more disk than the user requested but should be less than about 7GB more
+# (at least in the HCIT environment). This is very environment dependent and should be modified
+# to fit local conventions/requirements.
+
+# To view the number of cylinders in a disk on z/VM guest you can use `vmcp q v dasd`
+# Use `fdisk -l` to see the size of the disk in bytes
+
+# Calculating the conversion factor:
+# 22153789440 B / 30048 cyl = 737280 --> 20.6 GB disk
+# 132922736640 B / 180288 cyl = 737280 --> 123.8 GB disk
+# 1 GB = 1073741824 B
+bytesPerGB: 1073741824
+bytesPerCylinder: 737280
+incrementSize: 10016
+# guestDisk should be provided in the inventory
+reqCylinders: "{{ (guestDisk / bytesPerCylinder ) * bytesPerGB }}"
+# find the number of increments we need
+numIncrements: "{{ (reqCylinders|float / incrementSize) | round(0, 'ceil') }}"
+# get the number of cylinders from the number of increments
+numCylinders: "{{ numIncrements|float * incrementSize }}"

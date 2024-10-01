@@ -1,0 +1,6 @@
+clusterDir: "{{ mediaServerDir }}/{{ clusterName }}"
+mediaDir: "{{ clusterDir }}/{{ ocpVersion }}"
+# when getting the media, we want to use the node architectures
+rhMediaMirrorURL: "https://mirror.openshift.com/pub/openshift-v4/{{ architecture }}/dependencies/rhcos/{{ ocpMajorVersion }}.{{ ocpMinorVersion }}/{{ ocpVersion }}"
+# when getting the binaries, we want to use the controller's architecture
+rhBinaryMirrorURL: "https://mirror.openshift.com/pub/openshift-v4/{{ ansible_architecture }}/clients/ocp/{{ ocpVersion }}"

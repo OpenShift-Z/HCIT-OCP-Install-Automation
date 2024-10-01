@@ -1,0 +1,12 @@
+- name: cleanup parmfile
+  file:
+    path: /tmp/{{ guestName }}.parm
+    state: absent
+- name: cleanup kernel files
+  file:
+    path: /tmp/{{ kernel_img }}
+    state: absent
+- name: cleanup initrd files
+  file:
+    path: /tmp/{{ initrd_img }}
+    state: absent

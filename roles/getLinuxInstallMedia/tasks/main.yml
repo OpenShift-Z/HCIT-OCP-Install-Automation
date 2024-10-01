@@ -1,0 +1,30 @@
+# Create the directory for the linux install media
+- name: Create directory for cluster
+  ansible.builtin.file:
+    path: "{{ clusterDir }}"
+    state: directory
+    mode: '0777'
+  become: true
+# since we are going to remove the OCP version from the media file names
+# I want to create subdirectory with version info
+# <mediaServerDir>
+# | - <clusterName> --> this is the value refernced by `clusterDir`
+# | | - <ocpVersion> --> this is the value refernced by `mediaDir`
+# | | |  initramfs
+# | | |  kernel
+# | | |  rootfs
+- name: Create directory for media
+  ansible.builtin.file:
+    path: "{{ clusterDir }}/{{ ocpVersion }}"
+    state: directory
+    mode: '0775'
+
+# get the media including the oc-install binary to create the ign files
+- name: Download the OCP install media from RH mirror
+  ansible.builtin.get_url:
+    url: "{{ rhMediaMirrorURL }}/{{ item.0 }}"
+    dest: "{{ mediaDir }}/{{ item.1 }}"
+    mode: '0664'
+  with_together:
+     - "{{ ocpMediaFileSrcs }}"
+     - "{{ ocpMediaFileDests }}"

@@ -1,0 +1,10 @@
+nicdev: "1000"
+nicl2: 1
+vswname: 10DOTLAN
+defmem: "{{ guestMem }}"
+maxmem: "{{ guestMem * 2 }}"
+sbymem: "{{ maxmem|int - defmem|int }}"
+topcpu: "{{ vCPUs - 1 }}"
+newpass: AUTOONLY
+subnet: default
+

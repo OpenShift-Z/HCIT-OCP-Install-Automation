@@ -1,0 +1,112 @@
+all:
+    hosts:
+      # this is where the new install will get it's initrd, kernel, rootfs and ign files from
+      mediaServer:
+        ansible_host: 10.0.4.216
+        ansible_user: user2
+        ansible_become_password: "{{ mediaServerPasswd }}"
+      # this is just a utility s390x machine where we will create ignition files 
+      # and complete mirroring of OCP media. This aligns with modern ansible best practices
+      # of using a remote controller for consistent operator across multiple users
+      ocpControllerKVM:
+        ansible_host: 10.0.2.28
+        ansible_user: user2
+        ansible_python_interpreter: /usr/bin/python3.12
+    vars:
+      # ocp networking information
+      vlan: 1234
+      netmask: 255.255.252.0
+      gateway: 10.0.7.254
+      dns1: 1.1.1.1
+      dns2: 9.9.9.9
+      clusterName: jbsandbox2
+      domain: my.test.domain.com
+      # if useLocalImages is true, the automation will mirror the install media to the specified
+      # local image registry
+      # if useLocalImages is false, the automation will not mirror the install media
+      useLocalImages: true
+      # if enableClusterProxy is true, the proxy information below will be added to the cluster
+      # if false, proxy information will not be made available to the cluster
+      enableClusterProxy: false
+      # if enableClusterProxy is false, this info will only be used for fetching oc and openshift-install
+      # binaries and other preconfiguration tasks and not given to the resulting cluster
+      proxy_server: "http://10.0.4.216:3128"
+      no_proxy: "localhost,10.0.0.0/8,my.test.domain.com"
+      # ocp install information, this is 4.16.3
+      ocpVersion: 4.15.23
+      # this should point to a dockerconfig file with all image credentials to be used 
+      # by the installed cluster. Use relative path from {{ playbook_dir }}
+      clusterPullSecretFile: cluster.dockerconfigjson
+      # info about the cluster to be installed
+      vCPUs: 8
+      guestMem: 32
+      guestDisk: 20
+      # evenutally want to add support for multi-arch particularly with KVM, this may need to shift to a per node basis
+      architecture: s390x 
+      authorizedKeys: "<my ssh public key>"
+      # info about the media server
+      mediaServerIP: 10.0.4.216
+      mediaServerDir: "/var/www/html"
+      # image registry information will be used as {{ imageRegHostName }}/{{ clusterOrgPath }}/<whatever-image>:<tag>
+      imageRegHostName: quayreg1.my.test.domain.com
+      clusterOrgPath: '{{ clusterName }}'
+      # additional certs for the OCP install to trust
+      additionalCerts: "{{ lookup('file', 'my_ca.crt') }}"      
+      # This file should have credentials for reading from quay.io and for 
+      # writing to the local mirror registry. Use relative path from {{ playbook_dir }}
+      mirrorCredsFile: mirror.dockerconfigjson
+    children:
+        bootstrapNode:      
+          hosts:
+            bootstrap:
+              ansible_host: ltickvm3.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.156
+              installType: zvm
+              guestName: jbsb2bt0
+        managerNodes:
+          hosts:
+            manager0:
+              ansible_host: ltickvm2.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.158
+              installType: zvm
+              guestName: jbsb2mg0
+            manager1:
+              ansible_host: ltickvm3.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.159
+              installType: zvm
+              guestName: jbsb2mg1
+            manager2:
+              ansible_host: ltickvm4.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.160
+              installType: zvm
+              guestName: jbsb2mg2
+        workerNodes:
+          hosts:
+            worker0:
+              ansible_host: ltickvm2.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.161
+              installType: zvm
+              guestName: jbsb2wk0
+            worker1:
+              ansible_host: ltickvm2.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.162
+              installType: zvm
+              guestName: jbsb2wk1
+            worker2:
+              ansible_host: cic2cvm3.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.163
+              installType: zvm
+              guestName: jbsb2wk2
+            worker3:
+              ansible_host: cic2cvm3.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.164
+              installType: zvm
+              guestName: jbsb2wk3

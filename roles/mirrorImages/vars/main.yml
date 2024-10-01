@@ -1,0 +1,4 @@
+# where should we get the media from 
+productRepo: "openshift-release-dev"
+releaseName: "ocp-release"
+imageSource: quay.io/{{ productRepo }}/{{ releaseName }}:{{ ocpVersion }}-{{ architecture }}

@@ -1,0 +1,9 @@
+ocpMediaFileSrcs:
+   - rhcos-{{ ocpVersion }}-{{ architecture }}-live-kernel-{{ architecture }}
+   - rhcos-{{ ocpVersion }}-{{ architecture }}-live-initramfs.{{ architecture }}.img
+   - rhcos-{{ ocpVersion }}-{{ architecture }}-live-rootfs.{{ architecture }}.img
+
+ocpMediaFileDests:
+   - rhcos-live-kernel-{{ architecture }}
+   - rhcos-live-initramfs-{{ architecture }}.img
+   - rhcos-live-rootfs-{{ architecture }}.img

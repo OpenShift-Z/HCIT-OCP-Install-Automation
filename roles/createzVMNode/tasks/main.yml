@@ -1,0 +1,36 @@
+# we shouldn't run this role if the desired architecture is not s390x
+- name: validate node arch
+  fail:
+    msg: "Node {{ inventory_hostname }} is not specified as s390x but is trying to be installed on s390x"
+  when: architecture != 's390x'
+
+# really need to do some checking here to make sure that the ipAddr is correctly formatted/valid
+- name: check that ipAddr is defined
+  fail:
+    msg: "Please define the ipAddr for the node"
+  when: ipAddr is undefined
+
+# should check that the name is alphanumeric only
+- name: check that the node has a z/VM guest name 
+  fail:
+    msg: "'guestName' must be set when creating zVM node and must be 8 characters or less"
+  when: guestName is undefined or guestName | length | int > 9
+
+# make the new guests, convert them to OCP nodes and clean up
+- name: create new linuxes
+  include_tasks: makeZvmGuest.yml
+- name: convert guest to OCP node
+  include_tasks: makeGuestOCP.yml
+- name: clean up files
+  include_tasks: cleanupFiles.yml
+
+# should be able to ping the guest if the networking is up but will
+# give it a couple tries in case of reboots etc.
+- name: check that the guest networking is up
+  shell: |
+    ping -c 3 {{ ipAddr }}
+  retries: 3
+  delay: 20
+
+
+

@@ -1,0 +1,127 @@
+# first want to check that the right number of managers is defined
+- name: check num managers
+  fail:
+    msg: "Must only have three manager nodes"
+  when: groups['managerNodes'] | length | int != 3
+
+# need to get the install-config template to the remote
+- name: create the install-config from template
+  template:
+    src: install-config-yaml.j2
+    dest: "{{ workDir }}/install-config.yaml"
+    mode: '0755'
+
+# since the create manifests command will delete the existing install-config, we'll copy
+# the file so that it still exists for debugging purposes
+- name: create install-config new name
+  set_fact:
+    newInstallConfig: "install-config-{{ now(fmt='%m-%d-%y-%H%M%S') }}.yaml"
+
+- name: save the install-config under different name
+  shell: |
+    cp install-config.yaml {{ newInstallConfig }}
+  args:
+    chdir: "{{ workDir }}"
+
+# if the .openshift_install_state.json isn't removed, it could cause
+# the ignition to use a different version than specified if there
+# was a previous install in the same dir
+- name: delete the openshift_install_state
+  file: 
+    path: "{{ workDir }}/{{ item }}"
+    state: absent
+  loop:
+    - ".openshift_install_state.json"
+    - ".openshift_install.log"
+    - "auth"
+    - "bootstrap.ign"
+    - "worker.ign"
+    - "manager.ign"
+
+- name: run create manifests
+  shell: |
+    ./openshift-install create manifests --dir {{ workDir }}
+  args:
+    chdir: "{{ workDir }}"
+
+# following this instruction:
+# https://docs.openshift.com/container-platform/4.16/installing/installing_ibm_z/installing-ibm-z-kvm.html#installation-infrastructure-user-infra_installing-ibm-z-kvm:~:text=Check%20that%20the%20mastersSchedulable%20parameter%20in%20the%20%3Cinstallation_directory%3E/manifests/cluster%2Dscheduler%2D02%2Dconfig.yml
+- name: check mastersSchedulable is false
+  shell: |
+    grep "mastersSchedulable" manifests/cluster-scheduler-02-config.yml | awk "{print $2}"
+  register: result
+  failed_when: '"false" not in result.stdout'
+  args:
+    chdir: "{{ workDir }}"
+
+- name: create ignition-configs
+  shell: |
+    ./openshift-install create ignition-configs --dir {{ workDir }}
+  args:
+    chdir: "{{ workDir }}"
+
+# openshift-install binary still outputs a `master.ign` but switching
+# to the now preferred `manager`
+- name: move master.ign to manager.ign
+  copy:
+    src: "{{ workDir }}/master.ign"
+    dest: "{{ workDir }}/manager.ign"
+    remote_src: true
+
+# together with `move master.ign to manager.ign`
+- name: remove master.ign
+  file:
+    dest: "{{ workDir }}/master.ign"
+    state: absent
+
+- name: get .ign file names
+  find:
+    paths: "{{ workDir }}"
+    patterns:
+      - "*.ign"
+  register: ign_files
+
+# Going to use rsync to move the ign files to remote. Since rsync needs to 
+# point to a directory, we'll move the ign files to a new dir so that only
+# the ign files are grabbed. 
+- name: create ign dir
+  file:
+    path: "{{ workDir }}/ignFiles"
+    state: directory
+
+- name: copy the ign files to new ignFiles dir
+  copy:
+    src: "{{ item.path }}"
+    dest: "{{ workDir }}/ignFiles"
+    remote_src: true
+    mode: "0777"
+  with_items: "{{ ign_files.files }}"
+
+# now we can do the actual copy 
+# Use delegate_to to copy files between remotes
+# See: https://stackoverflow.com/questions/25505146/how-can-i-copy-files-between-two-managed-nodes-using-ansible
+# Use trailing slash to only copy files in dir and not `ignFiles` dir itself
+- name: move ign files to web server
+  ansible.posix.synchronize:
+    src: "{{ workDir }}/ignFiles/"
+    dest: "{{ clusterDir }}"
+    mode: pull
+  delegate_to: mediaServer
+
+# we don't need the ignFiles dir anymore
+- name: delete ignFiles dir
+  file:
+    path: "{{ workDir }}/ignFiles"
+    state: absent
+
+# since workDir will also have the auth files lets copy those back to the local machine
+# for easier access
+- name: fetch kubeconfig
+  fetch:
+    src: "{{ workDir }}/auth/kubeconfig"
+    dest: "{{ playbook_dir }}"
+
+- name: fetch kubeadmin-password
+  fetch:
+    src: "{{ workDir }}/auth/kubeadmin-password"
+    dest: "{{ playbook_dir }}"

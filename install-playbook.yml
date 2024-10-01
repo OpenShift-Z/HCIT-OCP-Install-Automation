@@ -1,0 +1,137 @@
+---
+# these are the pre-req tasks
+- hosts: mediaServer
+  gather_facts: true
+  tasks:
+    - name: Get linux install media
+      include_role:
+        name: getLinuxInstallMedia
+
+# creating the ignition files has to be done on s390x but the media server is powerPC
+- hosts: ocpControllerKVM
+  gather_facts: true
+  vars:
+    proxy_env:
+      https_proxy: "{{ proxy_server }}"
+      no_proxy: "{{ no_proxy }}"
+    workDir: "/home/user2/ocp-install-ansible/{{ clusterName }}"
+  tasks:
+    - name: Prepare the ansible controller
+      include_role:
+        name: prepController
+    - name: Mirror OCP install media to registry
+      include_role:
+        name: mirrorImages
+      when: useLocalImages | lower == "true"
+    - name: Create ignition files
+      include_role: 
+        name: createIGNFiles
+
+
+# time to do the actual install
+- hosts: bootstrapNode
+  gather_facts: true
+  tasks:
+    - name: create bootstrap
+      include_role:
+        name: createKVMNode
+      when: installType | lower == "kvm"
+    - name: create bootstrap
+      include_role:
+        name: createzVMNode
+      when: installType | lower == "zvm"
+
+
+- hosts: managerNodes
+  gather_facts: true
+  tasks:
+    - name: create KVM manager
+      include_role:
+        name: createKVMNode
+      when: installType | lower == "kvm"
+    - name: create zVM manager
+      include_role:
+        name: createzVMNode
+      when: installType | lower == "zvm"
+    
+# # wait for the managers to join the cluster and bootstrap to complete
+- hosts: ocpControllerKVM
+  gather_facts: true
+  vars:
+    workDir: "/home/user2/ocp-install-ansible/{{ clusterName }}"
+  tasks:
+    - name: Wait for all three managers to join cluster
+      shell: | 
+        ./oc get no --kubeconfig=auth/kubeconfig | grep -ci "manager" 
+      retries: 60
+      delay: 30
+      register: result
+      until: "result.stdout == '3'"
+      args:
+        chdir: "{{ workDir }}"
+    # In theory this has a 45 minute timeout but we're probably pretty close if the CO's are looking good
+    - name: Double check bootstrap complete
+      shell: |
+        ./openshift-install wait-for bootstrap-complete
+      args:
+        chdir: "{{ workDir }}"
+    # As of 4.16 there are 33 CO's on cluster install, around 4 of them won't be totally good
+    # until worker nodes are added so we'll loop here till we get lots of availables
+    - name: Wait for the CO's to start looking good
+      shell: | 
+        ./oc get co --kubeconfig=auth/kubeconfig --no-headers | awk '{print $3,$4,$5}' | grep -ci "True False False"
+      retries: 60
+      delay: 60
+      register: result
+      until: "result.stdout | int > 27"
+      args:
+        chdir: "{{ workDir }}"
+
+
+
+# remove bootstrap server and also DNS entry
+
+
+## From here on it's just about adding the worker nodes
+# startup the worker nodes
+- hosts: workerNodes
+  gather_facts: true
+  tasks:
+    - name: create KVM worker
+      include_role:
+        name: createKVMNode
+      when: installType | lower == "kvm"
+    - name: create zVM worker
+      include_role:
+        name: createzVMNode
+      when: installType | lower == "zvm"
+
+# approve the csr's, loop for a bit
+# unfortunately this is kind of messy because we want to loop until the worker node has joined the cluster
+# but the approve CSR's command can't return the number of workers
+# !! Also not sure if I want to wait for the total number of workers to be right or just wait for a specific worker to join...
+- hosts: ocpControllerKVM
+  gather_facts: true
+  vars:
+    workDir: "/home/user2/ocp-install-ansible/{{ clusterName }}"
+  tasks:
+    - name: get number of worker nodes desired
+      set_fact:
+        numWorkers: "{{ groups['workerNodes'] | length }}"
+    - name: approve csr's
+      shell: | 
+        ./oc get csr -o name --kubeconfig=auth/kubeconfig | xargs ./oc adm certificate approve --kubeconfig=auth/kubeconfig > /dev/null 2>&1
+
+        ./oc get no --kubeconfig=auth/kubeconfig | grep -ci worker 
+      retries: 60
+      delay: 30
+      register: result
+      until: 'numWorkers == result.stdout'
+      args:
+        chdir: "{{ workDir }}"
+    # This has it's own 40 minute timeout builtin
+    - name: Double check install complete
+      shell: |
+        ./openshift-install wait-for install-complete
+      args:
+        chdir: "{{ workDir }}"

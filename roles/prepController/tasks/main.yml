@@ -1,0 +1,63 @@
+# in this role we want to prep the controller, this means creating
+# the directory we will work in for the mirror and creating ign files
+# and also need to get oc-install and oc cli binaries
+
+- name: create workDir
+  ansible.builtin.file:
+    path: "{{ workDir }}"
+    state: directory
+    mode: '0755'
+
+# if version a of the openshift-install binary is present but you wish
+# to install version b of openshift, ansible will skip the next task and
+# your ignition files will use version a of OCP
+- name: remove openshift-install binary
+  file:
+    path: "{{ workDir }}/openshift-install"
+    state: absent
+
+# fetch the openshift-install binary and unarchive into workDir
+# need this to create the ign files
+- name: extract openshift-install
+  ansible.builtin.unarchive:
+    src: "{{ rhBinaryMirrorURL }}/openshift-install-linux.tar.gz"
+    dest: "{{ workDir }}"
+    remote_src: yes
+    mode: '0775'
+  environment: "{{ proxy_env }}"
+
+- name: remove oc binary
+  file:
+    path: "{{ workDir }}/oc"
+    state: absent
+
+# gotta grab the oc binary to complete a mirror in case of disconnected install
+# and also need it later on to check cluster status, approve csr's etc.
+# having some issues with RHEL8 vs RHEL9 when using openshift-client-linux and OCP 4.16
+# so gonna grab the os too
+- name: get the OS version
+  set_fact: 
+    os: 'rhel{{ ansible_distribution_major_version }}'
+  when: ansible_facts['distribution'] == "RedHat"
+
+# get and untar the oc client
+- name: extract oc client
+  ansible.builtin.unarchive:
+    src: "{{ rhBinaryMirrorURL }}/openshift-client-linux-{{ ansible_architecture }}-{{ os }}.tar.gz"
+    dest: "{{ workDir }}"
+    remote_src: yes
+    mode: '0755'
+  when: ansible_facts['distribution'] == "RedHat" and ocpMinorVersion | int >= 16
+  environment: "{{ proxy_env }}"
+
+# anything that's not RHEL will have to make do
+# also versions of OCP older than 4.16 don't seem to distinguish between rhel8/rhel9 binaries
+- name: extract oc client
+  ansible.builtin.unarchive:
+    src: "{{ rhBinaryMirrorURL }}/openshift-client-linux.tar.gz"
+    dest: "{{ workDir }}"
+    remote_src: yes
+    mode: '0755'
+  when: ansible_facts['distribution'] != "RedHat" or ocpMinorVersion | int < 16
+  environment: "{{ proxy_env }}"
+    

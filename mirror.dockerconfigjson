@@ -1,0 +1,16 @@
+{
+        "auths": {
+                "quayreg1.my.test.domain.com/jbsandbox2": {
+                        "auth": "<base64 encoded write creds>"
+                },
+                "registry.redhat.io": {
+                        "auth": "<base64 encoded creds>"
+                },
+                "quay.io": {
+                    "auth": "<base64 encoded creds>"
+                },
+                "registry.connect.redhat.com": {
+                    "auth": "<base64 encoded creds>"
+                }
+        }
+}

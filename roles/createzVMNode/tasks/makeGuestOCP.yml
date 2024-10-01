@@ -1,0 +1,61 @@
+# I think this replaces a #CP LOGOFF
+- name: shuterdown
+  zvm_startstop_user:
+    name: '{{ guestName }}'
+    loggedon: false
+    viaSMAPI: false
+    stoptime: 1
+  ignore_errors: true
+# this section preps the files needed for boot
+# it expects the ign file and the rootfs to be on the web server
+- name: template a boot parm file
+  template:
+    src: ocp_bootparm.j2
+    dest: /tmp/{{ guestName }}.prm
+- name: Download kernel_img
+  get_url:
+    url: "http://{{ mediaServerIP }}/{{ mediaDir }}/{{ kernel_img }}"
+    dest: /tmp/{{ kernel_img }}
+    mode: '0644'
+- name: Download ram disk image
+  get_url:
+    url: "http://{{ mediaServerIP }}/{{ mediaDir }}/{{ initrd_img }}"
+    dest: /tmp/{{ initrd_img }}
+    mode: '0644'
+
+# use ansible block here to throttle the card reader tasks to one at a time
+# have run into some issues trying to punch content to two guests on the same z/VM hypervisor
+- name: Complete reader tasks
+  block:
+    # Purge the card reader for the guest
+    # this replaces a #CP PUR RDR ALL on zVM
+    - name: dump user rdrs
+      zvm_reader_empty:
+        name: '{{ guestName }}'
+    # this punches the OCP content to the card reader of the guest
+    # replaces the old ocp_startup.sh script
+    - name: send kernel to user rdrs
+      zvm_fileto_rdr:
+        name: '{{ guestName }}'
+        filename: "/tmp/{{ kernel_img }}"
+        asfilename: kernel.coreos
+    - name: send parmfile to user rdrs
+      zvm_fileto_rdr:
+        name: '{{ guestName }}'
+        filename: "/tmp/{{ guestName }}.prm"
+        asfilename: parmfile.coreos
+    - name: send initrd to user rdrs
+      zvm_fileto_rdr:
+        name: '{{ guestName }}'
+        filename: "/tmp/{{ initrd_img }}"
+        asfilename: initrd.coreos
+    # IPL the guest from the content that you just punched to the card reader
+    # Replaces an "xautolog <guest> ipl 00c"
+    - name: startem up
+      zvm_startstop_user:
+        name: '{{ guestName }}'
+        loggedon: true
+        viaSMAPI: false
+        IPLdev: 00c
+      ignore_errors: true
+  throttle: 1

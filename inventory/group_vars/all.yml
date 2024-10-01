@@ -1,0 +1,16 @@
+mirrorLocation: "{{ imageRegHostName }}/{{ clusterOrgPath }}/openshift{{ ocpMajorVersion }}/{{ ocpMinorVersion }}/install"
+clusterDir: "{{ mediaServerDir }}/{{ clusterName }}"
+
+ocpVersionList: "{{ ocpVersion | split('.') }}"
+ocpMajorVersion: "{{ ocpVersionList[0] }}"
+ocpMinorVersion: "{{ ocpVersionList[1] }}"
+ocpPatchVersion: "{{ ocpVersionList[2] }}"
+
+# use ansible vault here to protect this value
+mediaServerPasswd: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          35393434636266393961633636626462656663326161323539366435353532363961303433653162
+          6461623239393865386131306631306534636564303733640a383064616435633261306234636133
+          66353237313265316537326233663164626130653463333361366561346430363566656534653464
+          3933353765373932640a643935386639313438323665656532636334373530333235326138323035
+          6233

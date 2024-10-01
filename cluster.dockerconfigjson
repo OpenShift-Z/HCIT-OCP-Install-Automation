@@ -1,0 +1,10 @@
+{
+    "auths":{
+        "quayreg1.my.test.domain.com/jbsandbox2":
+            {"auth":"<base64 encoded creds>"
+        },
+        "quayreg1.my.test.domain.com/openshift-releases":
+            {"auth": "<base64 encoded creds>"
+        }
+    }
+}

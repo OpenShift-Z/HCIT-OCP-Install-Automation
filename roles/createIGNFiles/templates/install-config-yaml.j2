@@ -1,0 +1,43 @@
+apiVersion: v1
+baseDomain: {{ domain }}
+compute:
+- architecture: {{ architecture }}
+  hyperthreading: Enabled
+  name: worker
+  platform: {}
+  replicas: {{ groups['managerNodes'] | length | int }}
+controlPlane:
+  architecture: {{ architecture }}
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 3
+metadata:
+  name: {{ clusterName }}
+{% if enableClusterProxy | lower == "true" %}
+proxy:
+  httpProxy: {{ proxy_server }}
+  httpsProxy: {{ proxy_server }}
+  noProxy: {{ no_proxy }}
+{% endif %}
+networking:
+  clusterNetworks:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  networkType: OVNKubernetes
+platform:
+  none: {}
+publish: External
+pullSecret: '{{ lookup('file', clusterPullSecretFile) | replace('\n','') | replace(' ','') }}'
+{% if useLocalImages | lower == "true" %}
+imageDigestSources:
+- mirrors:
+  - {{ mirrorLocation }}
+  source: quay.io/openshift-release-dev/ocp-release
+- mirrors:
+  - {{ mirrorLocation }}
+  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+{% endif %}
+sshKey: {{ authorizedKeys }}
+additionalTrustBundle: |
+  {{ additionalCerts | indent (width=2) }}

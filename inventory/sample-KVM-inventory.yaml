@@ -1,0 +1,85 @@
+all:
+    hosts:
+      mediaServer:
+        ansible_host: 10.0.4.216
+        ansible_user: user2
+        ansible_become_password: "{{ mediaServerPasswd }}"
+      ocpControllerKVM:
+        ansible_host: 10.0.4.57
+        ansible_user: user2
+        ansible_python_interpreter: /usr/bin/python3.12
+    vars:
+      # ocp networking information
+      vlan: 1234
+      netmask: 255.255.252.0
+      gateway: 10.0.7.254
+      dns1: 1.1.1.1
+      dns2: 9.9.9.9
+      clusterName: jbsandbox2
+      domain: my.test.domain.com
+      useLocalImages: true
+      enableClusterProxy: false
+      proxy_server: "http://10.0.4.216:3128"
+      no_proxy: "10.0.0.0/8,my.test.domain.com"
+      # ocp install information
+      ocpVersion: 4.16.3
+      # this should point to a dockerconfig file with all credentials to be used 
+      # by the installed cluster. Use relative path from playbook_dir
+      clusterPullSecretFile: cluster.dockerconfigjson
+      vCPUs: 8
+      guestMem: 32
+      guestDisk: 120
+      architecture: s390x 
+      authorizedKeys: "<my ssh public key>"
+      # info about the media server
+      mediaServerIP: 10.0.4.216
+      mediaServerDir: "/var/www/html"
+      # image registry information
+      imageRegHostName: quayreg1.my.test.domain.com
+      clusterOrgPath: '{{ clusterName }}'
+      additionalCerts: "{{ lookup('file', 'my_ca.crt') }}"      
+      # This file should have credentials for reading from quay.io and for 
+      # writing to the local mirror registry. Use relative path from playbook_dir
+      mirrorCredsFile: mirror.dockerconfigjson
+    children:
+        bootstrapNode:      
+          hosts:
+            bootstrap:
+              ansible_host: ltickvm3.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.156
+              installType: kvm
+        managerNodes:
+          hosts:
+            manager0:
+              ansible_host: ltickvm2.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.158
+              installType: kvm
+            manager1:
+              ansible_host: ltickvm3.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.159
+              installType: kvm
+            manager2:
+              ansible_host: ltickvm4.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.160
+              installType: kvm
+        workerNodes:
+          hosts:
+            worker0:
+              ansible_host: ltickvm2.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.161
+              installType: kvm
+            worker1:
+              ansible_host: ltickvm3.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.162
+              installType: kvm
+            worker2:
+              ansible_host: ltickvm4.my.test.domain.com
+              ansible_user: user1
+              ipAddr: 10.0.4.163
+              installType: kvm

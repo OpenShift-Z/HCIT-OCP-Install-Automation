@@ -1,0 +1,20 @@
+#!/bin/bash
+sudo virt-install    --connect qemu:///system \
+    --name "{{ clusterName }}-{{ inventory_hostname }}" \
+    --vcpus "{{ vCPUs }}" \
+    --memory {{ guestMem * 1024 }} \
+    --disk "{{ qcowLocation }}/{{ clusterName }}-{{ inventory_hostname }}.qcow2,size={{ guestDisk }}" \
+    --network direct,source=vlan{{ vlan }},source.mode=bridge \
+    --os-variant fedora-coreos-stable \
+    --boot hd \
+    --location "{{ protocol }}://{{ mediaServerIP }}/{{ clusterName }}/{{ ocpVersion }},kernel=rhcos-live-kernel-{{ architecture }},initrd=rhcos-live-initramfs-{{ architecture }}.img" \
+    --extra-args "nomodeset console=ttysclp0,115200n8 \
+      rd.neednet=1 coreos.inst=yes coreos.inst.install_dev=/dev/vda \
+      coreos.inst.ignition_url={{ protocol }}://{{ mediaServerIP }}/{{ clusterName }}/{{ nodeType }}.ign \
+      ip={{ ipAddr }}::{{ gateway }}:22:{{ inventory_hostname }}.{{ clusterName }}:enc1:none \
+      nameserver={{ dns1 }} \
+      coreos.live.rootfs_url={{ protocol }}://{{ mediaServerIP }}/{{ clusterName }}/{{ ocpVersion }}/rhcos-live-rootfs-{{ architecture }}.img" \
+    --noautoconsole \
+    --graphics=none \
+    --events on_reboot=restart \
+    --autostart

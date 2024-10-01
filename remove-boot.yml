@@ -1,0 +1,18 @@
+# remove bootstrap server, need to also remove DNS entry manually
+- hosts: bootstrapNode
+  gather_facts: true
+  become: true
+  tasks:
+    - name: destroy KVM guest
+      shell: |
+        sudo virsh destroy "{{ clusterName }}-{{ inventory_hostname }}"
+      when: installType | lower == "kvm"
+    - name: undefine KVM guest
+      shell: |
+        sudo virsh undefine "{{ clusterName }}-{{ inventory_hostname }}"
+      when: installType | lower == "kvm"
+    - name: delete z/VM guest
+      zvm_user:
+        name: '{{ guestName }}'
+        exists: false
+      when: installType | lower == "zvm"

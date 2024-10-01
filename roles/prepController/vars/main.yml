@@ -1,0 +1,1 @@
+rhBinaryMirrorURL: "https://mirror.openshift.com/pub/openshift-v4/{{ ansible_architecture }}/clients/ocp/{{ ocpVersion }}"

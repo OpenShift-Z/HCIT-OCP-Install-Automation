@@ -1,0 +1,5 @@
+# basically want to strip the 0 from manager0 or 1 from worker1
+# tbh should probably do input checking to ensure that master isn't used 
+# since the master.ign file is renamed to manager.ign
+nodeType: "{{ inventory_hostname | regex_replace('[0-9]', '') }}"
+mediaDir: "{{ mediaServerDir }}/{{ clusterName }}"

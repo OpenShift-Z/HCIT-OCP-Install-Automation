@@ -1,0 +1,2 @@
+protocol: http
+qcowLocation: /guests/{{ clusterName }}_{{ inventory_hostname }}

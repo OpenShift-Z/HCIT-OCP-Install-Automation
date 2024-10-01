@@ -1,0 +1,83 @@
+# Check that node doesn't already exist on hypervisor
+- name: Check for node on hypervisor
+  shell: |
+    sudo virsh list --all | grep {{ clusterName }}-{{ inventory_hostname }}
+  register: result
+  failed_when:
+     - result.rc == 0
+
+- name: check that ipAddr is defined
+  fail:
+    msg: "Please define the ipAddr for the node"
+  when: ipAddr is undefined
+
+- name: create directory for qcow files
+  become: true
+  file:
+    path: "{{ qcowLocation }}"
+    state: directory
+    mode: '0755'
+
+# if qcow already exists sizing won't be right so delete it if it exists
+- name: Remove qcow if it exists
+  file:
+    path: "{{ qcowLocation }}/{{ clusterName }}-{{ inventory_hostname }}.qcow2"
+    state: absent
+  become: true
+
+# template the virt install script and place on remote in /tmp
+- name: template virt install script
+  template:
+    src: virt-install-sh.j2
+    dest: "/tmp/virt-install-{{ inventory_hostname }}.sh"
+    mode: '0755'
+# run the virt install, we won't wait tho so gotta check that the node starts
+- name: run the virt install
+  become: true
+  shell: "/tmp/virt-install-{{ inventory_hostname }}.sh"
+
+# wait for the node to startup
+- name: wait for node to report running
+  shell: |
+    sudo virsh list --state-running | grep "{{ clusterName }}-{{ inventory_hostname }}" | awk '{print $3}'
+  register: result
+  until: result.rc == 0
+  retries: 20
+  become: true
+  
+# can't make sure the node is pingable from KVM host
+# issues with macvtap trying to reach KVM running on that machine
+
+- name: Remove install script
+  file:
+    path: /tmp/virt-install-{{ inventory_hostname }}.sh
+    state: absent
+  
+# use delegate_to here bc on KVM the host won't be able to ping guest
+# and the guests will need to be able to reach media server anyway
+- name: try to ping node
+  shell: |
+    ping {{ ipAddr }} -c 3
+  delegate_to: mediaServer
+  retries: 3
+  delay: 10
+  register: result
+  failed_when:
+  - result.rc != 0
+
+# Even setting the on_reboot=restart with a virt install, the first reboot won't actually come back
+# so use this to manually restart the guest. First, wait for the guest to report not running, then
+# try to use virsh to restart the guest
+- name: wait for guest to stop
+  shell: |
+    sudo virsh list --state-running | grep "{{ clusterName }}-{{ inventory_hostname }}"
+  register: result
+  until: result.rc != 0
+  retries: 30
+  delay: 10
+  become: true
+  ignore_errors: true
+- name: restart the node
+  become: true
+  shell: | 
+    sudo virsh start "{{ clusterName }}-{{ inventory_hostname }}"

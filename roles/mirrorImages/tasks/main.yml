@@ -1,0 +1,21 @@
+
+- name: send the mirror creds to the remote
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/{{ mirrorCredsFile }}"
+    dest: "{{ authFile }}"
+    mode: '0740'
+
+- name: run mirror
+  shell: |
+    ./oc adm release mirror -a {{ authFile }} --print-mirror-instructions idms \
+    --from={{ imageSource }} \
+    --to={{ mirrorLocation }} \
+    --to-release-image={{ mirrorLocation }}:{{ ocpVersion }}-{{ architecture }}
+  args:
+    chdir: "{{ workDir }}"  
+  environment: "{{ proxy_env }}"
+
+- name: remove the mirror creds from remote
+  ansible.builtin.file:
+    path: "{{ authFile }}"
+    state: absent

@@ -1,0 +1,8 @@
+#*.dockerconfigjson
+mediaServer/*
+ocpControllerKVM/*
+# *.crt
+*.bak
+*.tmp
+.vault-password
+ansible.cfg
