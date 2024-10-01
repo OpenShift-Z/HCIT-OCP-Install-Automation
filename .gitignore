@@ -1,7 +1,7 @@
-#*.dockerconfigjson
+*.dockerconfigjson
 mediaServer/*
 ocpControllerKVM/*
-# *.crt
+*.crt
 *.bak
 *.tmp
 .vault-password

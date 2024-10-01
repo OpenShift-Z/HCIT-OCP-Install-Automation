@@ -16,8 +16,17 @@ Below is a brief diagram of the steps taken within the install-playbook Ansible 
 ![OCP install process flowchart](./readme-diagrams/flowChart.png)
 
 # Usage
+To install a cluster described in an inventory file:
 ```
 ansible-playbook -i inventory/<my-inventory> install-playbook.yml
+```
+To uninstall a cluster described in an inventory file:
+```
+ansible-playbook -i inventory/<my-inventory> uninstall-playbook.yml
+```
+To remove the bootstrap node described in an inventory file:
+```
+ansible-playbook -i inventory/<my-inventory> remove-boot.yml
 ```
 
 # Variables
